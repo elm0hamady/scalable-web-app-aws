@@ -1,0 +1,55 @@
+flowchart TB
+    USER[Users / Browsers]
+    DNS[Route 53<br/>Optional custom DNS]
+    CF[CloudFront]
+    WAF[AWS WAF<br/>Web ACL on CloudFront]
+    S3[(S3 static assets)]
+    ALB[Application Load Balancer]
+    IGW[Internet Gateway]
+
+    subgraph VPC["Amazon VPC"]
+      direction TB
+      subgraph PUBLIC["Public subnets — AZ-A and AZ-B"]
+        ALB
+        NAT_A[NAT Gateway — AZ-A]
+        NAT_B[NAT Gateway — AZ-B]
+      end
+
+      subgraph AZA["Availability Zone A"]
+        APP_A["Private app subnet<br/>EC2 instance"]
+      end
+      subgraph AZB["Availability Zone B"]
+        APP_B["Private app subnet<br/>EC2 instance"]
+      end
+
+      ASG[Auto Scaling Group<br/>Launch Template + scaling policy]
+      TG[Target Group<br/>Health checks]
+      subgraph DB["Private database subnets"]
+        RDS[(Amazon RDS<br/>Multi-AZ)]
+      end
+
+      ALB --> TG
+      TG --> APP_A
+      TG --> APP_B
+      ASG -. manages .-> APP_A
+      ASG -. manages .-> APP_B
+      APP_A --> RDS
+      APP_B --> RDS
+      IGW --- ALB
+    end
+
+    USER --> DNS --> CF
+    CF --- WAF
+    CF -->|Dynamic requests| ALB
+    CF -->|Static assets| S3
+    SSM[AWS Systems Manager<br/>Session Manager]
+    CW[CloudWatch<br/>Metrics, logs, alarms]
+    SNS[Amazon SNS<br/>Notifications]
+    SSM -. secure administration .-> APP_A
+    SSM -. secure administration .-> APP_B
+    APP_A -. telemetry .-> CW
+    APP_B -. telemetry .-> CW
+    RDS -. metrics .-> CW
+    CW --> SNS
+    NAT_A -. outbound only when needed .-> IGW
+    NAT_B -. outbound only when needed .-> IGW

@@ -1,0 +1,59 @@
+digraph AWS {
+      graph [rankdir=TB, bgcolor="white", pad="0.25", nodesep="0.35", ranksep="0.5", fontname="Arial", label="Scalable Web Application on AWS", labelloc="t", fontsize=22];
+      node [shape=box, style="rounded,filled", fillcolor="#F7FAFC", color="#52718A", fontname="Arial", fontsize=10, margin="0.15,0.1"];
+      edge [color="#526777", fontname="Arial", fontsize=9, arrowsize=0.7];
+      users [label="Users / Browsers"];
+      route53 [label="Route 53\\n(Optional DNS)"];
+      cf [label="CloudFront"];
+      waf [label="AWS WAF\\nWeb ACL"];
+      s3 [label="Amazon S3\\nStatic assets", shape=cylinder, fillcolor="#F1F8E9"];
+      subgraph cluster_vpc {
+        label="Amazon VPC"; color="#477CA8"; style="rounded"; penwidth=2;
+        igw [label="Internet Gateway", fillcolor="#E8F1FB"];
+        subgraph cluster_public {
+          label="Public Subnets — AZ-A and AZ-B"; color="#D6A34B"; style="rounded";
+          alb [label="Application Load Balancer", fillcolor="#FFF4D6"];
+          natA [label="NAT Gateway\\nAZ-A", fillcolor="#FFF4D6"];
+          natB [label="NAT Gateway\\nAZ-B", fillcolor="#FFF4D6"];
+        }
+        subgraph cluster_aza {
+          label="Availability Zone A"; color="#7E9D8A"; style="rounded";
+          appA [label="Private App Subnet\\nEC2 instance"];
+        }
+        subgraph cluster_azb {
+          label="Availability Zone B"; color="#7E9D8A"; style="rounded";
+          appB [label="Private App Subnet\\nEC2 instance"];
+        }
+        asg [label="EC2 Auto Scaling Group\\nLaunch Template + Scaling Policy", fillcolor="#E8F1FB"];
+        tg [label="Target Group\\nHealth Checks", fillcolor="#E8F1FB"];
+        subgraph cluster_db {
+          label="Private Database Subnets"; color="#8C85B8"; style="rounded";
+          rds [label="Amazon RDS\\nMulti-AZ", shape=cylinder, fillcolor="#F1EFFF"];
+        }
+        alb -> tg;
+        tg -> appA;
+        tg -> appB;
+        asg -> appA [style=dashed, label="manages"];
+        asg -> appB [style=dashed, label="manages"];
+        appA -> rds;
+        appB -> rds;
+        igw -> alb [dir=both, style=dashed, label="internet path"];
+        natA -> igw [style=dashed, label="outbound"];
+        natB -> igw [style=dashed, label="outbound"];
+      }
+      ssm [label="Systems Manager\\nSession Manager"];
+      cw [label="CloudWatch\\nMetrics, logs, alarms"];
+      sns [label="SNS\\nNotifications"];
+      users -> route53 -> cf;
+      cf -> alb [label="dynamic requests"];
+      cf -> s3 [label="static assets"];
+      cf -> waf [dir=none, style=dashed, label="protected by"];
+      ssm -> appA [style=dashed, label="admin"];
+      ssm -> appB [style=dashed, label="admin"];
+      appA -> cw [style=dashed, label="telemetry"];
+      appB -> cw [style=dashed];
+      rds -> cw [style=dashed];
+      cw -> sns;
+      {rank=same; waf; s3}
+      {rank=same; natA; natB}
+    }
